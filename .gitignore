@@ -1,2 +1,4 @@
 client/target/
 client/tomcat/
+server/log_servidor.txt
+server/arquivos_servidor/
