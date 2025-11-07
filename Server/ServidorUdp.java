@@ -13,6 +13,31 @@ public class ServidorUdp {
     private static final String ARQUIVO_LOG = "Server/log_servidor.txt";
     
     private static Map<String, List<byte[]>> uploadsParciais = new HashMap<>();
+    private static List<ClienteInfo> clientesConectados = new ArrayList<>();
+    
+    // Classe interna para armazenar informações do cliente
+    static class ClienteInfo {
+        String ip;
+        int porta;
+        
+        ClienteInfo(String ip, int porta) {
+            this.ip = ip;
+            this.porta = porta;
+        }
+        
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ClienteInfo that = (ClienteInfo) o;
+            return porta == that.porta && ip.equals(that.ip);
+        }
+        
+        @Override
+        public int hashCode() {
+            return Objects.hash(ip, porta);
+        }
+    }
     
     public static void main(String[] args) throws Exception {
         Files.createDirectories(Paths.get(PASTA_ARQUIVOS));
@@ -35,6 +60,9 @@ public class ServidorUdp {
                 String mensagem = new String(packet.getData(), 0, packet.getLength(), "UTF-8");
                 String[] partes = mensagem.split("\\|", 2);
                 String comando = partes[0];
+                
+                // Registrar cliente automaticamente
+                registrarCliente(clienteIP, clientePorta);
                 
                 System.out.println("Comando recebido: " + comando + " de " + clienteIP);
                 
@@ -65,6 +93,26 @@ public class ServidorUdp {
                 log("ERRO", "SISTEMA", "Erro no servidor: " + e.getMessage());
                 e.printStackTrace();
             }
+        }
+    }
+    
+    private static void registrarCliente(String clienteIP, int clientePorta) {
+        ClienteInfo novoCliente = new ClienteInfo(clienteIP, clientePorta);
+        
+        // Verifica se o cliente já está registrado
+        boolean jaExiste = false;
+        for (ClienteInfo cliente : clientesConectados) {
+            if (cliente.equals(novoCliente)) {
+                jaExiste = true;
+                break;
+            }
+        }
+        
+        if (!jaExiste) {
+            clientesConectados.add(novoCliente);
+            System.out.println("Novo cliente registrado: " + clienteIP + ":" + clientePorta + 
+                             " (Total: " + clientesConectados.size() + ")");
+            log("INFO", clienteIP, "Cliente registrado automaticamente");
         }
     }
     
@@ -247,16 +295,34 @@ public class ServidorUdp {
     }
     
     private static void notificarClientes() {
-        try {
-            HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:8080/app/api/notify"))
-                    .POST(HttpRequest.BodyPublishers.noBody())
-                    .build(),
-                HttpResponse.BodyHandlers.ofString()
-            );
-        } catch (Exception e) {
-            System.out.println("Aviso: Não foi possível notificar clientes HTTP: " + e.getMessage());
+        if (clientesConectados.isEmpty()) {
+            System.out.println("Aviso: Nenhum cliente conectado para notificar");
+            return;
+        }
+        
+        System.out.println("Notificando " + clientesConectados.size() + " cliente(s)...");
+        
+        for (ClienteInfo cliente : clientesConectados) {
+            try {
+                // Monta a URL do cliente (assumindo que a aplicação web está rodando na mesma porta + offset)
+                // Ajuste conforme sua configuração: porta HTTP = porta base do seu servidor web
+                String url = "http://" + cliente.ip + ":8080/app/api/notify";
+                
+                HttpClient.newHttpClient().send(
+                    HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(java.time.Duration.ofSeconds(3))
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build(),
+                    HttpResponse.BodyHandlers.ofString()
+                );
+                
+                System.out.println("Cliente notificado: " + cliente.ip + ":8080");
+                
+            } catch (Exception e) {
+                System.out.println("Aviso: Não foi possível notificar " + cliente.ip + 
+                                 ": " + e.getMessage());
+            }
         }
     }
     
