@@ -15,7 +15,6 @@ public class ServidorUdp {
     private static Map<String, List<byte[]>> uploadsParciais = new HashMap<>();
     private static List<ClienteInfo> clientesConectados = new ArrayList<>();
     
-    // Classe interna para armazenar informações do cliente
     static class ClienteInfo {
         String ip;
         int porta;
@@ -61,7 +60,6 @@ public class ServidorUdp {
                 String[] partes = mensagem.split("\\|", 2);
                 String comando = partes[0];
                 
-                // Registrar cliente automaticamente
                 registrarCliente(clienteIP, clientePorta);
                 
                 System.out.println("Comando recebido: " + comando + " de " + clienteIP);
@@ -99,7 +97,6 @@ public class ServidorUdp {
     private static void registrarCliente(String clienteIP, int clientePorta) {
         ClienteInfo novoCliente = new ClienteInfo(clienteIP, clientePorta);
         
-        // Verifica se o cliente já está registrado
         boolean jaExiste = false;
         for (ClienteInfo cliente : clientesConectados) {
             if (cliente.equals(novoCliente)) {
@@ -304,8 +301,6 @@ public class ServidorUdp {
         
         for (ClienteInfo cliente : clientesConectados) {
             try {
-                // Monta a URL do cliente (assumindo que a aplicação web está rodando na mesma porta + offset)
-                // Ajuste conforme sua configuração: porta HTTP = porta base do seu servidor web
                 String url = "http://" + cliente.ip + ":8080/app/api/notify";
                 
                 HttpClient.newHttpClient().send(
